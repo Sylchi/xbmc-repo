@@ -1,0 +1,9 @@
+0.0.3
+- Lisatud supaka reitingu näitamine
+- Kuvatakse õige pealkiri SubClubist
+- Lisatud võimalus valida kõigi raris leidunud supakate seast
+- Muudetud salvestuse asukohta
+
+0.0.2
+- Parandatud vead subtiitrite sõelumises
+- Redigeeritud SubClub.eu logo
