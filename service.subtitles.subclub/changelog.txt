@@ -1,3 +1,6 @@
+0.0.4
+- Õiged logod SubClubist
+
 0.0.3
 - Lisatud supaka reitingu näitamine
 - Kuvatakse õige pealkiri SubClubist
