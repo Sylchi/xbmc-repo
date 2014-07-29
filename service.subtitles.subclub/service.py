@@ -124,7 +124,6 @@ def getallsubs(searchstring, languageshort, languagelong, file_original_path):
 					supakad = []
 					for klapp in SISU_RE.finditer(sisu):
 						supakas = klapp.groupdict()['supakas']
-						log(u"Subtiiter: %s" % supakas)
 						supakad.append(supakas)
 				for s in supakad:
 					sisu = s.strip()
@@ -190,22 +189,26 @@ def append_subtitle(item):
 
 def Search(item):
 
-    file_original_path = item['file_original_path']
-    title = item['title']
-    tvshow = item['tvshow']
-    season = item['season']
-    episode = item['episode']
+	file_original_path = item['file_original_path']
+	title = item['title']
+	tvshow = item['tvshow']
+	season = item['season']
+	episode = item['episode']
+	mansearch = item['mansearch']
 
-    if tvshow:
-        searchstring = "%s S%#02dE%#02d" % (tvshow, int(season), int(episode))
-    else:
-        searchstring = title
-    log(u"Search string = %s" % (searchstring,))
+	if tvshow:
+		searchstring = "%s S%#02dE%#02d" % (tvshow, int(season), int(episode))
+	elif mansearch:
+		searchstring = item['mansearchstr']
+		searchstring = re.sub('%20', ' ', searchstring)
+	else:
+		searchstring = title
+	log(u"Search string = %s" % (searchstring,))
 
-    subs_list = getallsubs(searchstring, "et", "Estonian", file_original_path)
+	subs_list = getallsubs(searchstring, "et", "Estonian", file_original_path)
 
-    for sub in subs_list:
-        append_subtitle(sub)
+	for sub in subs_list:
+		append_subtitle(sub)
 
 
 def Download(id, filename):
@@ -321,46 +324,51 @@ def main():
     # Get parameters from XBMC and launch actions
     params = get_params()
 
-    if params['action'] == 'search':
-        item = {}
-        item['temp']               = False
-        item['rar']                = False
-        item['year']               = xbmc.getInfoLabel("VideoPlayer.Year")
-        item['season']             = str(xbmc.getInfoLabel("VideoPlayer.Season"))
-        item['episode']            = str(xbmc.getInfoLabel("VideoPlayer.Episode"))
-        item['tvshow']             = normalizeString(xbmc.getInfoLabel("VideoPlayer.TVshowtitle"))
-        # Try to get original title
-        item['title']              = normalizeString(xbmc.getInfoLabel("VideoPlayer.OriginalTitle"))
-        # Full path of a playing file
-        item['file_original_path'] = urllib.unquote(xbmc.Player().getPlayingFile().decode('utf-8'))
-        item['3let_language']      = []
-        item['2let_language']      = []
+    if params['action'] == 'search' or params['action'] == 'manualsearch':
+		item = {}
+		item['temp']               = False
+		item['rar']                = False
+		item['mansearch']			= False
+		item['year']               = xbmc.getInfoLabel("VideoPlayer.Year")
+		item['season']             = str(xbmc.getInfoLabel("VideoPlayer.Season"))
+		item['episode']            = str(xbmc.getInfoLabel("VideoPlayer.Episode"))
+		item['tvshow']             = normalizeString(xbmc.getInfoLabel("VideoPlayer.TVshowtitle"))
+		# Try to get original title
+		item['title']              = normalizeString(xbmc.getInfoLabel("VideoPlayer.OriginalTitle"))
+		# Full path of a playing file
+		item['file_original_path'] = urllib.unquote(xbmc.Player().getPlayingFile().decode('utf-8'))
+		item['3let_language']      = []
+		item['2let_language']      = []
+		
+		for lang in urllib.unquote(params['languages']).decode('utf-8').split(","):
+			item['3let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_2))
+			item['2let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_1))
+			
+		if 'searchstring' in params:
+			item['mansearch'] = True
+			item['mansearchstr'] = params['searchstring']
+		
+		if not item['title']:
+			# No original title, get just Title
+			item['title'] = normalizeString(xbmc.getInfoLabel("VideoPlayer.Title"))
 
-        for lang in urllib.unquote(params['languages']).decode('utf-8').split(","):
-            item['3let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_2))
-            item['2let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_1))
+		if "s" in item['episode'].lower():
+			# Check if season is "Special"
+			item['season'] = "0"
+			item['episode'] = item['episode'][-1:]
 
-        if not item['title']:
-            # No original title, get just Title
-            item['title'] = normalizeString(xbmc.getInfoLabel("VideoPlayer.Title"))
+		if "http" in item['file_original_path']:
+			item['temp'] = True
 
-        if "s" in item['episode'].lower():
-            # Check if season is "Special"
-            item['season'] = "0"
-            item['episode'] = item['episode'][-1:]
+		elif "rar://" in item['file_original_path']:
+			item['rar'] = True
+			item['file_original_path'] = os.path.dirname(item['file_original_path'][6:])
 
-        if "http" in item['file_original_path']:
-            item['temp'] = True
+		elif "stack://" in item['file_original_path']:
+			stackPath = item['file_original_path'].split(" , ")
+			item['file_original_path'] = stackPath[0][8:]
 
-        elif "rar://" in item['file_original_path']:
-            item['rar'] = True
-            item['file_original_path'] = os.path.dirname(item['file_original_path'][6:])
-
-        elif "stack://" in item['file_original_path']:
-            stackPath = item['file_original_path'].split(" , ")
-            item['file_original_path'] = stackPath[0][8:]
-
-        Search(item)
+		Search(item)
 
     elif params['action'] == 'download':
         # We pickup all our arguments sent from def Search()

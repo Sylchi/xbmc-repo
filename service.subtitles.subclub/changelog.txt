@@ -1,6 +1,8 @@
 0.0.5
 - Parandatud sünkroonis supaka leidmine. Enne kuvas sünkroonis supakat ka siis, kui
 see seda polnud.
+- Lisatud võimalus manuaalselt supakaid otsida
+
 0.0.4
 - Õiged logod SubClubist
 
