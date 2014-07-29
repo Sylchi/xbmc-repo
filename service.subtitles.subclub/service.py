@@ -47,6 +47,7 @@ sys.path.append(__resource__)
 
 MAIN_URL = "http://www.subclub.eu/"
 SEARCH_PAGE_URL = MAIN_URL + "jutud.php?tp=nimi&otsing=%(query)s"
+CONTENT_URL = MAIN_URL + "subtitles_archivecontent.php?id=%(query)s"
 
 INTERNAL_LINK_URL = "plugin://%(scriptid)s/?action=download&id=%(id)s&filename=%(filename)s"
 SUB_EXTS = ['srt', 'aas', 'ssa', 'sub', 'smi', 'txt']
@@ -68,6 +69,9 @@ SUBTITLE_RE = re.compile(r'''<a\s+class="sc_link"\s+
 # 'comment': Kommentaarid jutustuse all
 # 'hinne': SubClubis antud subtiitri hinne
 # 'pealkiri': Filmi nimetus
+
+SISU_RE = re.compile(r'''<a\s+href=.+?">(?P<supakas>.*?)</a>''', re.IGNORECASE | re.DOTALL | re.VERBOSE |
+						re.UNICODE | re.MULTILINE)
 
 DOWNLOAD_LINK_RE = re.compile(r'down.php\?id=(.*?)"', re.IGNORECASE |
                               re.DOTALL | re.MULTILINE | re.UNICODE)
@@ -109,26 +113,36 @@ def getallsubs(searchstring, languageshort, languagelong, file_original_path):
         content = geturl(url)
         if content is not None:
 			for match in SUBTITLE_RE.finditer(content):
+				synkroon = ''
 				rating = match.groupdict()['hinne']
 				hinne = int(float(rating))
-				#hinne = round(hinne)
-				log(u"Hinne: %s" % hinne)
 				id = match.groupdict()['id']
 				description = match.groupdict()['pealkiri']
-				#pealkiri = match.groupdict()['pealkiri']
-				#nimetus = pealkiri.strip()
-				#nimetus = re.sub('\n', ' ', nimetus)
+				url2 = CONTENT_URL % {'query': id }
+				sisu = geturl(url2)
+				if sisu is not None:
+					supakad = []
+					for klapp in SISU_RE.finditer(sisu):
+						supakas = klapp.groupdict()['supakas']
+						log(u"Subtiiter: %s" % supakas)
+						supakad.append(supakas)
+				for s in supakad:
+					sisu = s.strip()
+					sisu = re.sub('\n', ' ', sisu)
+					sisu = re.sub('<br />', '', sisu)
+					sisu = re.sub(r'<[^<]+?>', '', sisu)
+					_, fn = os.path.split(file_original_path)
+					name, _ = os.path.splitext(fn)
+					sisu, _ = os.path.splitext(sisu)
+					sync = re.search(re.escape(name), sisu, re.I) is not None
+					if sync == True:
+						synkroon = sync
+				
 				text = description.strip()
 				# Eemaldame uued read
 				text = re.sub('\n', ' ', text)
 				# Eemaldame HTML märgid
 				text = re.sub(r'<[^<]+?>', '', text)
-					# Kui kirjelduses leidub meie video tegelik nimi,
-					# siis seame sünkroniseerimise tõeseks, kuna sel juhul on suurem tõenäosus,
-					# et asi on sünkroonis
-				_, fn = os.path.split(file_original_path)
-				name, _ = os.path.splitext(fn)
-				sync = re.search(re.escape(name), text, re.I) is not None
 				try:
 					log(u"Subtitles found: %s (id = %s)" % (text, id))
 				except Exception:
@@ -136,7 +150,7 @@ def getallsubs(searchstring, languageshort, languagelong, file_original_path):
 				item = {
 					'rating': str(hinne),
 					'filename': text.decode('latin1'),
-					'sync': sync,
+					'sync': synkroon,
 					'id': id,
 					# 'language_flag': 'flags/' + languageshort + '.gif',
 					'language_name': languagelong,
