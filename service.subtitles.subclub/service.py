@@ -70,6 +70,7 @@ SUBTITLE_RE = re.compile(r'''<a\s+class="sc_link"\s+
 # 'hinne': SubClubis antud subtiitri hinne
 # 'pealkiri': Filmi nimetus
 
+# Hangime .rar faili sisu
 SISU_RE = re.compile(r'''<a\s+href=.+?">(?P<supakas>.*?)</a>''', re.IGNORECASE | re.DOTALL | re.VERBOSE |
 						re.UNICODE | re.MULTILINE)
 
@@ -197,7 +198,7 @@ def Search(item):
 	mansearch = item['mansearch']
 
 	if tvshow:
-		searchstring = "%s S%#02dE%#02d" % (tvshow, int(season), int(episode))
+		searchstring = "%s %#02dx%#02d" % (tvshow, int(season), int(episode))
 	elif mansearch:
 		searchstring = item['mansearchstr']
 		searchstring = re.sub('%20', ' ', searchstring)
@@ -308,7 +309,7 @@ def get_params():
     if len(arg) >= 2:
         value = arg
         if value.endswith('/'):
-            value = value[:-2]  # XXX: Should be [:-1] ?
+            value = value[:-2]  # XXX: Peaks olema [:-1] ?
         cleaned = value.replace('?', '')
         for elem in cleaned.split('&'):
             kv = elem.split('=')
@@ -321,7 +322,7 @@ def get_params():
 def main():
     """Main entry point of the script when it is invoked by XBMC."""
 
-    # Get parameters from XBMC and launch actions
+    # Saame XBMC'lt parameetrid ja jooksutame
     params = get_params()
 
     if params['action'] == 'search' or params['action'] == 'manualsearch':
@@ -333,9 +334,9 @@ def main():
 		item['season']             = str(xbmc.getInfoLabel("VideoPlayer.Season"))
 		item['episode']            = str(xbmc.getInfoLabel("VideoPlayer.Episode"))
 		item['tvshow']             = normalizeString(xbmc.getInfoLabel("VideoPlayer.TVshowtitle"))
-		# Try to get original title
+		# Üritame hankida originaalpealkirja
 		item['title']              = normalizeString(xbmc.getInfoLabel("VideoPlayer.OriginalTitle"))
-		# Full path of a playing file
+		# Esitatava faili täistee
 		item['file_original_path'] = urllib.unquote(xbmc.Player().getPlayingFile().decode('utf-8'))
 		item['3let_language']      = []
 		item['2let_language']      = []
@@ -353,7 +354,7 @@ def main():
 			item['title'] = normalizeString(xbmc.getInfoLabel("VideoPlayer.Title"))
 
 		if "s" in item['episode'].lower():
-			# Check if season is "Special"
+			# Kontrollime, kas hooaeg on  "Special"
 			item['season'] = "0"
 			item['episode'] = item['episode'][-1:]
 
@@ -371,7 +372,7 @@ def main():
 		Search(item)
 
     elif params['action'] == 'download':
-        # We pickup all our arguments sent from def Search()
+        # Kõik parameetrid laadime definitsioonist Search()
         subs = Download(params["id"], params["filename"])
         # We can return more than one subtitle for multi CD versions, for now
         # we are still working out how to handle that in XBMC core
@@ -380,7 +381,7 @@ def main():
             xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=sub,
                                         listitem=listitem, isFolder=False)
 
-    # Send end of directory to XBMC
+    # Saadame XBMC'le kataloogi lõpu
     xbmcplugin.endOfDirectory(int(sys.argv[1]))
 
 

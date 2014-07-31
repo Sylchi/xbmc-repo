@@ -1,3 +1,6 @@
+0.0.6
+- Parandatud vead subtiitrite leidmisel seriaalidele
+
 0.0.5
 - Parandatud sünkroonis supaka leidmine. Enne kuvas sünkroonis supakat ka siis, kui
 see seda polnud.
