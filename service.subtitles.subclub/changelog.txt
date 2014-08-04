@@ -1,3 +1,7 @@
+0.0.7
+- Parandatud viga, kui subtiitrit pole veel hinnatud
+- Parandatud ebaühilduvus Raspberry PIga
+
 0.0.6
 - Parandatud vead subtiitrite leidmisel seriaalidele
 

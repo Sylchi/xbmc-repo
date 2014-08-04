@@ -62,7 +62,7 @@ def is_subs_file(fn):
 SUBTITLE_RE = re.compile(r'''<a\s+class="sc_link"\s+
                          href="../down.php\?id=(?P<id>.+?)".+?">(?P<pealkiri>.*?)</a>
                          .+?<span\s+id="komment_(?P<kommid>.+?)"\s+class="komment">(?P<comment>.*?)</span>
-						 .+?<span\s+title="Hindajaid:(?P<hindajaid>.+?)">(?P<hinne>.+?)</span>''',
+						 .+?<span\s+title="Hindajaid:\s+(?P<hindajaid>.+?)">(?P<hinne>.+?)</span>''',
                          re.IGNORECASE | re.DOTALL | re.VERBOSE | re.UNICODE |
                          re.MULTILINE)
 # 'id': SubClubi faili ID
@@ -116,7 +116,11 @@ def getallsubs(searchstring, languageshort, languagelong, file_original_path):
 			for match in SUBTITLE_RE.finditer(content):
 				synkroon = ''
 				rating = match.groupdict()['hinne']
-				hinne = int(float(rating))
+				hindajaid = match.groupdict()['hindajaid']
+				if hindajaid == "0":
+					hinne = 0
+				else:
+					hinne = int(float(rating))
 				id = match.groupdict()['id']
 				description = match.groupdict()['pealkiri']
 				url2 = CONTENT_URL % {'query': id }
@@ -232,7 +236,7 @@ def Download(id, filename):
             packed = True
         else:
 
-            local_tmp_file = pjoin(__temp__+"\subs", "subclub.srt")
+            local_tmp_file = pjoin(__temp__+"/subs", "subclub.srt")
             subs_file = local_tmp_file
             packed = False
         log(u"Saving subtitles to '%s'" % local_tmp_file)
@@ -259,38 +263,38 @@ def Download(id, filename):
             time.sleep(2)
             xbmc.executebuiltin("XBMC.Extract(%s, %s)" % (
                                 local_tmp_file.encode("utf-8"),
-                                __temp__+"\subs".encode("utf-8")))
+                                __temp__+"/subs".encode("utf-8")))
             waittime = 0
             while filecount == init_filecount and waittime < 20 and init_max_mtime == max_mtime:
                 time.sleep(1)  # Ootame ühe sekundi, kuni funktsioon
                                # 'XBMC.Extract' lahti pakib
-                files = os.listdir(__temp__+"\subs")
+                files = os.listdir(__temp__+"/subs")
                 filecount = len(files)
 		log(u"Kataloogis on %s faili" % filecount)
                 # Veendu, kas on loodud uuem fail __temp__ kataloogis (tähistab
                 # lahtipakkimise lõppemist)
                 for file in files:
                     if is_subs_file(file):
-                        mtime = os.stat(pjoin(__temp__+"\subs", file.decode("utf-8"))).st_mtime
+                        mtime = os.stat(pjoin(__temp__+"/subs", file.decode("utf-8"))).st_mtime
                         if mtime > max_mtime:
                             max_mtime = mtime
                 waittime = waittime + 1
             if waittime == 20:
-                log(u"Failed to unpack subtitles in '%s'" % (__temp__+"\subs",))
+                log(u"Failed to unpack subtitles in '%s'" % (__temp__+"/subs",))
             else:
-                log(u"Unpacked files in '%s'" % (__temp__+"\subs",))
+                log(u"Unpacked files in '%s'" % (__temp__+"/subs",))
                 for file in files:
 					log(u"Faile: '%s'" % len(files))
                     # __temp__ kataloogis võib üle ühe supaka olla, seega
                     # laseme kasutajal valida nende seast ühe
 					if len(files) > 1:
 						dialog = xbmcgui.Dialog()
-						subs_file = dialog.browse(1, 'XBMC', 'files', '', False, False, __temp__+"\subs/")
+						subs_file = dialog.browse(1, 'XBMC', 'files', '', False, False, __temp__+"/subs/")
 						log(u"Supakas: %s" % subs_file)
 						subtitles_list.append(subs_file)
 						break
 					else:
-						subs_file = pjoin(__temp__+"\subs", file.decode("utf-8"))
+						subs_file = pjoin(__temp__+"/subs", file.decode("utf-8"))
 						subtitles_list.append(subs_file)
 						
 						
@@ -350,7 +354,7 @@ def main():
 			item['mansearchstr'] = params['searchstring']
 		
 		if not item['title']:
-			# No original title, get just Title
+			# Originaalpealkiri puudub, haarab lihtsalt pealkirja
 			item['title'] = normalizeString(xbmc.getInfoLabel("VideoPlayer.Title"))
 
 		if "s" in item['episode'].lower():
@@ -374,8 +378,6 @@ def main():
     elif params['action'] == 'download':
         # Kõik parameetrid laadime definitsioonist Search()
         subs = Download(params["id"], params["filename"])
-        # We can return more than one subtitle for multi CD versions, for now
-        # we are still working out how to handle that in XBMC core
         for sub in subs:
             listitem = xbmcgui.ListItem(label=sub)
             xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]), url=sub,
