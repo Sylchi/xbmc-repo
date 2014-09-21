@@ -12,6 +12,8 @@ import sys
 import time
 import unicodedata
 import urllib
+reload(sys)
+sys.setdefaultencoding("utf8")
 
 try:
     import xbmc
@@ -43,7 +45,6 @@ __resource__   = xbmc.translatePath(pjoin(__cwd__, 'resources', 'lib')).decode("
 __temp__       = xbmc.translatePath(pjoin(__profile__, 'temp')).decode("utf-8")
 
 sys.path.append(__resource__)
-
 
 MAIN_URL = "http://www.subclub.eu/"
 SEARCH_PAGE_URL = MAIN_URL + "jutud.php?tp=nimi&otsing=%(query)s"
@@ -275,9 +276,10 @@ def Download(id, filename):
                 # lahtipakkimise lõppemist)
                 for file in files:
                     if is_subs_file(file):
-                        mtime = os.stat(pjoin(__temp__+"/subs", file.decode("utf-8"))).st_mtime
-                        if mtime > max_mtime:
-                            max_mtime = mtime
+						file.replace(u"\xa0", u" ")
+						mtime = os.stat(pjoin(__temp__+"/subs", file.decode("utf-8"))).st_mtime
+						if mtime > max_mtime:
+							max_mtime = mtime
                 waittime = waittime + 1
             if waittime == 20:
                 log(u"Failed to unpack subtitles in '%s'" % (__temp__+"/subs",))

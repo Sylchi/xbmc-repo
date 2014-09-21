@@ -1,3 +1,6 @@
+0.0.8
+- Pythoni bugi tõttu ümber tehtud utf-8 dekodeerimine. Kui XBMC ebastabiilseks muutub, vahetage tagasi 0.0.7 versioonile.
+
 0.0.7
 - Parandatud viga, kui subtiitrit pole veel hinnatud
 - Parandatud ebaühilduvus Raspberry PIga
