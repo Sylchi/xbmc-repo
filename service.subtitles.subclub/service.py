@@ -11,9 +11,9 @@ import shutil
 import sys
 import time
 import unicodedata
-import urllib
-reload(sys)
-sys.setdefaultencoding("utf8")
+import urllib.request
+import urllib.parse
+from requests.utils import requote_uri
 
 try:
     import xbmc
@@ -39,10 +39,10 @@ __scriptname__ = __addon__.getAddonInfo('name')
 __version__    = __addon__.getAddonInfo('version')
 __language__   = __addon__.getLocalizedString
 
-__cwd__        = xbmc.translatePath(__addon__.getAddonInfo('path')).decode("utf-8")
-__profile__    = xbmc.translatePath(__addon__.getAddonInfo('profile')).decode("utf-8")
-__resource__   = xbmc.translatePath(pjoin(__cwd__, 'resources', 'lib')).decode("utf-8")
-__temp__       = xbmc.translatePath(pjoin(__profile__, 'temp')).decode("utf-8")
+__cwd__        = xbmcvfs.translatePath(__addon__.getAddonInfo('path'))
+__profile__    = xbmcvfs.translatePath(__addon__.getAddonInfo('profile'))
+__resource__   = xbmcvfs.translatePath(pjoin(__cwd__, 'resources', 'lib'))
+__temp__       = xbmcvfs.translatePath(pjoin(__profile__, 'temp'))
 
 sys.path.append(__resource__)
 
@@ -85,7 +85,7 @@ DOWNLOAD_LINK_RE = re.compile(r'down.php\?id=(.*?)"', re.IGNORECASE |
 
 def _log(module, msg):
     s = u"### [%s] - %s" % (module, msg)
-    xbmc.log(s.encode('utf-8'), level=xbmc.LOGDEBUG)
+    xbmc.log(s, level=xbmc.LOGDEBUG)
 
 
 def log(msg):
@@ -93,7 +93,7 @@ def log(msg):
 
 
 def geturl(url):
-    class MyOpener(urllib.FancyURLopener):
+    class MyOpener(urllib.request.FancyURLopener):
         # version = HTTP_USER_AGENT
         version = ''
     my_urlopener = MyOpener()
@@ -111,57 +111,39 @@ def getallsubs(searchstring, languageshort, languagelong, file_original_path):
     subs_list = []
     if languageshort == "et":
         log(u"Subtiitrite '%s' haaramine ..." % languageshort)
-        url = SEARCH_PAGE_URL % {'query': urllib.quote_plus(searchstring)}
-        content = geturl(url)
+        url = SEARCH_PAGE_URL % {'query': searchstring}
+        content = geturl(requote_uri(url))
         if content is not None:
-			for match in SUBTITLE_RE.finditer(content):
-				synkroon = ''
-				rating = match.groupdict()['hinne']
-				hindajaid = match.groupdict()['hindajaid']
-				if hindajaid == "0":
-					hinne = 0
-				else:
-					hinne = int(float(rating))
-				id = match.groupdict()['id']
-				description = match.groupdict()['pealkiri']
-				url2 = CONTENT_URL % {'query': id }
-				sisu = geturl(url2)
-				if sisu is not None:
-					supakad = []
-					for klapp in SISU_RE.finditer(sisu):
-						supakas = klapp.groupdict()['supakas']
-						supakad.append(supakas)
-				for s in supakad:
-					sisu = s.strip()
-					sisu = re.sub('\n', ' ', sisu)
-					sisu = re.sub('<br />', '', sisu)
-					sisu = re.sub(r'<[^<]+?>', '', sisu)
-					_, fn = os.path.split(file_original_path)
-					name, _ = os.path.splitext(fn)
-					sisu, _ = os.path.splitext(sisu)
-					sync = re.search(re.escape(name), sisu, re.I) is not None
-					if sync == True:
-						synkroon = sync
-				
-				text = description.strip()
+            content = content.decode("utf-8", "ignore")
+            for match in SUBTITLE_RE.finditer(content):
+                synkroon = ''
+                rating = match.groupdict()['hinne']
+                hindajaid = match.groupdict()['hindajaid']
+                if hindajaid == "0":
+                    hinne = 0
+                else:
+                    hinne = int(float(rating))
+                id = match.groupdict()['id']
+                description = match.groupdict()['pealkiri']				
+                text = description.strip()
 				# Eemaldame uued read
-				text = re.sub('\n', ' ', text)
+                text = re.sub('\n', ' ', text)
 				# Eemaldame HTML märgid
-				text = re.sub(r'<[^<]+?>', '', text)
-				try:
-					log(u"Subtitles found: %s (id = %s)" % (text, id))
-				except Exception:
-					pass
-				item = {
+                text = re.sub(r'<[^<]+?>', '', text)
+                try:
+                    log(u"Subtitles found: %s (id = %s)" % (text, id))
+                except Exception:
+                    pass
+                item = {
 					'rating': str(hinne),
-					'filename': text.decode('latin1'),
+					'filename': text,
 					'sync': synkroon,
 					'id': id,
 					# 'language_flag': 'flags/' + languageshort + '.gif',
 					'language_name': languagelong,
 					# 'pealkiri': nimetus,
 				}
-				subs_list.append(item)
+                subs_list.append(item)
 
         # Pane supakad sync=True märgiga etteotsa
         subs_list = sorted(subs_list, key=lambda s: s['sync'], reverse=True)
@@ -173,10 +155,10 @@ def append_subtitle(item):
     listitem = xbmcgui.ListItem(
         label=item['language_name'],
         label2=item['filename'],
-        iconImage=item['rating'],
-        thumbnailImage='et'
+ #       iconImage=item['rating'],
+ #       thumbnailImage='et'
     )
-
+    listitem.setArt({ "thumb": 'et', "icon": item['rating'] })
     listitem.setProperty("sync", 'true' if item["sync"] else 'false')
     listitem.setProperty("hearing_imp",
                          'true' if item.get("hearing_imp", False) else 'false')
@@ -203,7 +185,7 @@ def Search(item):
 	mansearch = item['mansearch']
 
 	if tvshow:
-		searchstring = "%s %#02dx%#02d" % (tvshow, int(season), int(episode))
+		searchstring = "%s %#02dx%#02d" % (tvshow.decode('utf-8'), int(season), int(episode))
 	elif mansearch:
 		searchstring = item['mansearchstr']
 		searchstring = re.sub('%20', ' ', searchstring)
@@ -228,7 +210,9 @@ def Download(id, filename):
     actual_subtitle_file_url = MAIN_URL + "down.php?id=" + id
     content = geturl(actual_subtitle_file_url)
     if content is not None:
-        header = content[:4]
+        content = content
+        header = content[:4].decode('utf-8', 'ignore')
+        log(header)
         if header == 'Rar!':
             local_tmp_file = pjoin(__temp__, "subclub.rar")
             packed = True
@@ -262,42 +246,47 @@ def Download(id, filename):
             init_max_mtime = max_mtime
 
             time.sleep(2)
-            xbmc.executebuiltin("XBMC.Extract(%s, %s)" % (
-                                local_tmp_file.encode("utf-8"),
-                                __temp__+"/subs".encode("utf-8")))
+            xbmc.executebuiltin("XBMC.Extract(%s, %s)" % (local_tmp_file, __temp__+"/subs"), True)
+            log(__temp__)
+            path = urllib.parse.quote_plus(local_tmp_file)
+            (dirs, files) = xbmcvfs.listdir('archive://%s' % (path))
+            for file in files:
+                src = 'archive://' + path + '/' + file
+                dest = os.path.join(__temp__+"/subs", file)
+                xbmcvfs.copy(src, dest)
             waittime = 0
             while filecount == init_filecount and waittime < 20 and init_max_mtime == max_mtime:
                 time.sleep(1)  # Ootame ühe sekundi, kuni funktsioon
                                # 'XBMC.Extract' lahti pakib
                 files = os.listdir(__temp__+"/subs")
                 filecount = len(files)
-		log(u"Kataloogis on %s faili" % filecount)
+                log(u"Kataloogis on %s faili" % filecount)
                 # Veendu, kas on loodud uuem fail __temp__ kataloogis (tähistab
                 # lahtipakkimise lõppemist)
                 for file in files:
                     if is_subs_file(file):
-						file.replace(u"\xa0", u" ")
-						mtime = os.stat(pjoin(__temp__+"/subs", file.decode("utf-8"))).st_mtime
-						if mtime > max_mtime:
-							max_mtime = mtime
+                        file.replace(u"\xa0", u" ")
+                        mtime = os.stat(pjoin(__temp__+"/subs", file)).st_mtime
+                        if mtime > max_mtime:
+                        	max_mtime = mtime
                 waittime = waittime + 1
             if waittime == 20:
                 log(u"Failed to unpack subtitles in '%s'" % (__temp__+"/subs",))
             else:
                 log(u"Unpacked files in '%s'" % (__temp__+"/subs",))
                 for file in files:
-					log(u"Faile: '%s'" % len(files))
+                    log(u"Faile: '%s'" % len(files))
                     # __temp__ kataloogis võib üle ühe supaka olla, seega
                     # laseme kasutajal valida nende seast ühe
-					if len(files) > 1:
-						dialog = xbmcgui.Dialog()
-						subs_file = dialog.browse(1, 'XBMC', 'files', '', False, False, __temp__+"/subs/")
-						log(u"Supakas: %s" % subs_file)
-						subtitles_list.append(subs_file)
-						break
-					else:
-						subs_file = pjoin(__temp__+"/subs", file.decode("utf-8"))
-						subtitles_list.append(subs_file)
+                    if len(files) > 1:
+                        dialog = xbmcgui.Dialog()
+                        subs_file = dialog.browse(1, 'XBMC', 'files', '', False, False, __temp__+"/subs/")
+                        log(u"Supakas: %s" % subs_file)
+                        subtitles_list.append(subs_file)
+                        break
+                    else:
+                        subs_file = pjoin(__temp__+"/subs", file)
+                        subtitles_list.append(subs_file)
 						
 						
         else:
@@ -306,7 +295,7 @@ def Download(id, filename):
 
 
 def normalizeString(str):
-    return unicodedata.normalize('NFKD', unicode(unicode(str, 'utf-8'))).encode('ascii', 'ignore')
+    return unicodedata.normalize('NFKD', str).encode('ascii', 'ignore')
 
 
 def get_params():
@@ -332,50 +321,50 @@ def main():
     params = get_params()
 
     if params['action'] == 'search' or params['action'] == 'manualsearch':
-		item = {}
-		item['temp']               = False
-		item['rar']                = False
-		item['mansearch']			= False
-		item['year']               = xbmc.getInfoLabel("VideoPlayer.Year")
-		item['season']             = str(xbmc.getInfoLabel("VideoPlayer.Season"))
-		item['episode']            = str(xbmc.getInfoLabel("VideoPlayer.Episode"))
-		item['tvshow']             = normalizeString(xbmc.getInfoLabel("VideoPlayer.TVshowtitle"))
-		# Üritame hankida originaalpealkirja
-		item['title']              = normalizeString(xbmc.getInfoLabel("VideoPlayer.OriginalTitle"))
-		# Esitatava faili täistee
-		item['file_original_path'] = urllib.unquote(xbmc.Player().getPlayingFile().decode('utf-8'))
-		item['3let_language']      = []
-		item['2let_language']      = []
+        item = {}
+        item['temp']               = False
+        item['rar']                = False
+        item['mansearch']			= False
+        item['year']               = xbmc.getInfoLabel("VideoPlayer.Year")
+        item['season']             = str(xbmc.getInfoLabel("VideoPlayer.Season"))
+        item['episode']            = str(xbmc.getInfoLabel("VideoPlayer.Episode"))
+        item['tvshow']             = normalizeString(xbmc.getInfoLabel("VideoPlayer.TVshowtitle"))
+        # Üritame hankida originaalpealkirja
+        item['title']              = normalizeString(xbmc.getInfoLabel("VideoPlayer.OriginalTitle"))
+        # Esitatava faili täistee
+        item['file_original_path'] = urllib.parse.unquote(xbmc.Player().getPlayingFile())
+        item['3let_language']      = []
+        item['2let_language']      = []
 		
-		for lang in urllib.unquote(params['languages']).decode('utf-8').split(","):
-			item['3let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_2))
-			item['2let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_1))
+        for lang in urllib.parse.unquote(params['languages']).split(","):
+            item['3let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_2))
+            item['2let_language'].append(xbmc.convertLanguage(lang, xbmc.ISO_639_1))
 			
-		if 'searchstring' in params:
-			item['mansearch'] = True
-			item['mansearchstr'] = params['searchstring']
+        if 'searchstring' in params:
+            item['mansearch'] = True
+            item['mansearchstr'] = params['searchstring']
 		
-		if not item['title']:
+        if not item['title']:
 			# Originaalpealkiri puudub, haarab lihtsalt pealkirja
-			item['title'] = normalizeString(xbmc.getInfoLabel("VideoPlayer.Title"))
+            item['title'] = normalizeString(xbmc.getInfoLabel("VideoPlayer.Title"))
 
-		if "s" in item['episode'].lower():
+        if "s" in item['episode'].lower():
 			# Kontrollime, kas hooaeg on  "Special"
-			item['season'] = "0"
-			item['episode'] = item['episode'][-1:]
+            item['season'] = "0"
+            item['episode'] = item['episode'][-1:]
 
-		if "http" in item['file_original_path']:
-			item['temp'] = True
+        if "http" in item['file_original_path']:
+            item['temp'] = True
 
-		elif "rar://" in item['file_original_path']:
-			item['rar'] = True
-			item['file_original_path'] = os.path.dirname(item['file_original_path'][6:])
+        elif "rar://" in item['file_original_path']:
+            item['rar'] = True
+            item['file_original_path'] = os.path.dirname(item['file_original_path'][6:])
 
-		elif "stack://" in item['file_original_path']:
-			stackPath = item['file_original_path'].split(" , ")
-			item['file_original_path'] = stackPath[0][8:]
-
-		Search(item)
+        elif "stack://" in item['file_original_path']:
+            stackPath = item['file_original_path'].split(" , ")
+            item['file_original_path'] = stackPath[0][8:]
+        
+        Search(item)
 
     elif params['action'] == 'download':
         # Kõik parameetrid laadime definitsioonist Search()
